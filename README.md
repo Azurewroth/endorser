@@ -1,4 +1,3 @@
-swUtLapvFPt+cllGNuDKL7g30fIxDk9GJoIDU54Ze3OYE8yz--XPH72h/oOZ/hq4iX--+ovy4303ODI/ITUYkiq5Xw==
 # Batch Endorser for MO2
 
 Batch Endorser is a Python utility that helps you quickly endorse all your installed mods on Nexus Mods for games managed by Mod Organizer 2 (MO2).  
