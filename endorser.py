@@ -21,6 +21,10 @@ import tkinter as tk
 from tkinter import filedialog, messagebox, scrolledtext
 from tkinter import ttk
 import threading
+import json
+import base64
+
+CONFIG_FILE = "config.json"
 
 GAMES = {
     "Skyrim Special Edition": "skyrimspecialedition",
@@ -88,7 +92,47 @@ def process_mods(api_key, game_domain, mods_folder, output_box, status_var, prog
     root.after(0, status_var.set, "Done.")
     root.after(0, progress_var.set, 100)
 
+def load_config():
+    if os.path.exists(CONFIG_FILE):
+        with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+            try:
+                data = json.load(f)
+                # Decode API key if present
+                if "api_key" in data and data["api_key"]:
+                    data["api_key"] = base64.b64decode(data["api_key"]).decode()
+                return data
+            except Exception:
+                return {}
+    return {}
+
+def save_config(api_key, game, profiles_folder, mods_folder, profile):
+    data = {
+        "api_key": base64.b64encode(api_key.encode()).decode() if api_key else "",
+        "last_game": game,
+        "profiles_folder": profiles_folder,
+        "mods_folder": mods_folder,
+        "last_profile": profile
+    }
+    with open(CONFIG_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2)
+
 def start_gui():
+    # Load config on startup
+    config = load_config()
+
+    root = tk.Tk()
+    root.title("Nexus Batch Endorser for MO2")
+    root.geometry("600x600")
+
+    api_key_var = tk.StringVar(value=config.get("api_key", ""))
+    saved_game = config.get("last_game", list(GAMES.keys())[0])
+    if saved_game not in GAMES:
+        saved_game = list(GAMES.keys())[0]
+    selected_game = tk.StringVar(value=saved_game)
+    profiles_folder_var = tk.StringVar(value=config.get("profiles_folder", ""))
+    mods_folder_var = tk.StringVar(value=config.get("mods_folder", ""))
+    profile_options = tk.StringVar(value=config.get("last_profile", ""))
+
     def browse_profiles_folder():
         folder = filedialog.askdirectory()
         if folder:
@@ -125,6 +169,9 @@ def start_gui():
             messagebox.showerror("Missing Info", "Please fill out all required fields.")
             return
 
+        # Save config on start
+        save_config(api_key, selected_game.get(), profiles_folder, mods_folder, profile_selected)
+
         output_box.delete(1.0, tk.END)
         output_box.insert(tk.END, f"Starting batch endorsement for {selected_game.get()}...\n")
         output_box.insert(tk.END, f"Selected Profile: {profile_selected}\n")
@@ -138,35 +185,27 @@ def start_gui():
         )
         t.start()
 
-    root = tk.Tk()
-    root.title("Nexus Batch Endorser for MO2")
-    root.geometry("600x600")
+    api_key_in_config = bool(config.get("api_key"))
 
-    tk.Label(root, text="Nexus API Key:").pack()
-    api_key_var = tk.StringVar()
-    tk.Entry(root, textvariable=api_key_var, width=80).pack()
+    if not api_key_in_config:
+        tk.Label(root, text="Nexus API Key:").pack()
+        tk.Entry(root, textvariable=api_key_var, width=80).pack()
+    # else: do not show the API key entry
 
     tk.Label(root, text="Select Game:").pack()
-    selected_game = tk.StringVar()
-    selected_game.set(list(GAMES.keys())[0])
     tk.OptionMenu(root, selected_game, *GAMES.keys()).pack()
 
-    # Profiles folder and dropdown
     tk.Label(root, text="MO2 Profiles Folder:").pack()
-    profiles_folder_var = tk.StringVar()
     frame_profiles = tk.Frame(root)
     frame_profiles.pack()
     tk.Entry(frame_profiles, textvariable=profiles_folder_var, width=50).pack(side=tk.LEFT)
     tk.Button(frame_profiles, text="Browse...", command=browse_profiles_folder).pack(side=tk.LEFT)
 
     tk.Label(root, text="Select Profile:").pack()
-    profile_options = tk.StringVar()
     profiles_dropdown = tk.OptionMenu(root, profile_options, "")
     profiles_dropdown.pack()
 
-    # Mods folder selection
     tk.Label(root, text="MO2 Mods Folder:").pack()
-    mods_folder_var = tk.StringVar()
     frame_mods = tk.Frame(root)
     frame_mods.pack()
     tk.Entry(frame_mods, textvariable=mods_folder_var, width=50).pack(side=tk.LEFT)
@@ -174,21 +213,43 @@ def start_gui():
 
     tk.Button(root, text="Start Endorsement", command=start_process, bg="green", fg="white").pack(pady=10)
 
-    # Status bar will now be visible at the bottom
     status_var = tk.StringVar()
     status_var.set("Ready.")
     status_bar = tk.Label(root, textvariable=status_var, bd=1, relief=tk.SUNKEN, anchor=tk.W)
     status_bar.pack(side=tk.BOTTOM, fill=tk.X)
 
-    # Progress bar below the status bar
     progress_var = tk.DoubleVar()
     progress_bar = ttk.Progressbar(root, variable=progress_var, maximum=100, mode='determinate')
     progress_bar.pack(side=tk.BOTTOM, fill=tk.X)
 
+    show_output_var = tk.BooleanVar(value=True)
+
+    def toggle_output_box():
+        if show_output_var.get():
+            output_box.pack(fill=tk.BOTH, expand=True, padx=8, pady=8)
+        else:
+            output_box.pack_forget()
+
+    tk.Checkbutton(
+        root,
+        text="Show Output Text Box",
+        variable=show_output_var,
+        command=toggle_output_box
+    ).pack()
+
     output_box = scrolledtext.ScrolledText(root, width=80, height=20)
-    output_box.pack(fill=tk.BOTH, expand=True)
+    if show_output_var.get():
+        output_box.pack(fill=tk.BOTH, expand=True, padx=8, pady=8)
 
     root.mainloop()
+
+    # Save config on exit
+    api_key = api_key_var.get().strip()
+    game = selected_game.get()
+    profiles_folder = profiles_folder_var.get().strip()
+    mods_folder = mods_folder_var.get().strip()
+    profile_selected = profile_options.get()
+    save_config(api_key, game, profiles_folder, mods_folder, profile_selected)
 
 if __name__ == "__main__":
     start_gui()
