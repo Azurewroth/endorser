@@ -1,13 +1,13 @@
 # Changelog
 
-## [1.1.0] - 2025-06-XX
+## [1.1.0] - 2025-06-19
 ### Added
 - Remembers API key, game, and folder paths in a local config.json file
 - Hides API key entry after first successful save (unless config is missing)
 - Added a checkbox to show/hide the output text box
 - Improved output box padding for better appearance
 
-## [1.0.0] - 2025-06-20
+## [1.0.0] - 2025-06-19
 ### Added
 - Initial release of Batch Endorser for MO2
 - Simple graphical interface (Tkinter)
