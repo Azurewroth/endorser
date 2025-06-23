@@ -27,7 +27,7 @@ It features a simple graphical interface and supports Skyrim SE, Fallout 4, and 
 
 2. **Install dependencies:**
     ```sh
-    pip install requests
+    pip install requests cryptography
     ```
 
 ## Usage
@@ -48,11 +48,32 @@ It features a simple graphical interface and supports Skyrim SE, Fallout 4, and 
     - Click **Start Endorsement**.
     - Watch the progress bar and status updates as your mods are endorsed!
 
+## Tracked Mods & Update Checking
+
+- **Automatic Tracking:**  
+  All mods in your selected MO2 mods folder are automatically tracked by the program—no manual entry needed.
+
+- **Show Tracked Mods:**  
+  Click the **"Show Tracked Mods"** button to view a list of all tracked mods for the selected game.
+
+- **Update Detection:**  
+  The program checks Nexus Mods for each tracked mod.  
+  - If a mod has a newer version available on Nexus Mods, it will display `[Update Available]` next to that mod.
+  - If the local mod’s `meta.ini` has changed since the last scan, it will display `(Changed)`.
+
+- **Performance:**  
+  For large mod lists, update checking may take some time. The button will be disabled while checking to prevent duplicate requests.
+
+---
+
+**Tip:**  
+Make sure your Nexus Mods API key is set and your MO2 mods folder path is correct in the config or GUI for best results.
+
 ## Notes
 
 - Only mods with a valid `meta.ini` and `modid` will be endorsed.
-- Your Nexus API key is never saved.
-- This tool does not upload or modify your mods, only sends endorsements.
+- Your Nexus API key and settings are encrypted in `config.json` using a key stored in `config.key`.
+- Keep `config.key` safe! If you lose it, you cannot recover your settings.
 
 ## License
 
