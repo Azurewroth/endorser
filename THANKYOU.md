@@ -1,6 +1,8 @@
-This is my personal way of saying thank you. Each person here that I put here I do so humbly, so thank you.
-Nexus Mods - for givin us a place to showcase our mods.
-Mod Organizer - for the wounderful tool that we use to make our games better.
-Reddit - If not for this platform it would have harder to get suggestions.
-Phalanks(redditor) - for the suggestion to tighten the encription.
-Zorin_ (redditor) - for the suggestion to add mod tracking.
+This is my personal way of saying thank you. Each person listed here is included humbly, so thank you.
+
+- **Bethesda Game Studios** – for creating *The Elder Scrolls V: Skyrim*.
+- **Nexus Mods** – for giving us a place to showcase our mods.
+- **Mod Organizer** – for the wonderful tool that we use to improve our games.
+- **Reddit** – without this platform, it would have been harder to get suggestions.
+- **Phalanks** (redditor) – for the suggestion to tighten the encryption.
+- **Zorin_** (redditor) – for the suggestion to add mod tracking.
