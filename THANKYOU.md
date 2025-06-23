@@ -6,3 +6,4 @@ This is my personal way of saying thank you. Each person listed here is included
 - **Reddit** – without this platform, it would have been harder to get suggestions.
 - **Phalanks** (redditor) – for the suggestion to tighten the encryption.
 - **Zorin_** (redditor) – for the suggestion to add mod tracking.
+- **saric92** (redditor) - for the suggestion to tighten security.
