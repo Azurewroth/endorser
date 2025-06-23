@@ -1,79 +1,96 @@
 # Batch Endorser for MO2
 
-Batch Endorser is a Python utility that helps you quickly endorse all your installed mods on Nexus Mods for games managed by Mod Organizer 2 (MO2).  
-It features a simple graphical interface and supports Skyrim SE, Fallout 4, and more.
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)  
+[![Issues](https://img.shields.io/github/issues/Azurewroth/endorser)](https://github.com/Azurewroth/endorser/issues)  
+[![Pull Requests](https://img.shields.io/github/issues-pr/Azurewroth/endorser)](https://github.com/Azurewroth/endorser/pulls)  
+[![Wiki](https://img.shields.io/badge/docs-wiki-blue.svg)](https://github.com/Azurewroth/endorser/wiki)  
+[![Contributions Welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg)](https://github.com/Azurewroth/endorser/blob/main/CONTRIBUTING.md)
+
+---
+
+Batch Endorser is a Python utility designed to help you quickly endorse all your installed mods on Nexus Mods for games managed via Mod Organizer 2 (MO2).  
+It features a simple graphical interface and supports multiple games, including Skyrim SE, Fallout 4, and more.
+
+---
 
 ## Features
 
-- Endorse all mods in a selected MO2 mods folder with one click
-- Supports multiple games (Skyrim SE, Fallout 4, Skyrim LE, Fallout NV, Witcher 3)
-- Progress bar and status updates
-- Open source (GPL v3)
+- Endorse all mods in a selected MO2 mods folder with a single click  
+- Supports multiple games: Skyrim SE, Fallout 4, Skyrim LE, Fallout NV, Witcher 3  
+- Real-time progress bar and status updates  
+- Open source and licensed under GPL v3
+
+---
 
 ## Requirements
 
-- Python 3.8 or newer
-- [requests](https://pypi.org/project/requests/)
-- [tkinter](https://docs.python.org/3/library/tkinter.html) (usually included with Python)
-- [Nexus Mods API key](https://www.nexusmods.com/users/myaccount?tab=api%20access)
+- Python 3.8 or newer  
+- [requests](https://pypi.org/project/requests/) Python package  
+- [tkinter](https://docs.python.org/3/library/tkinter.html) (usually included with Python)  
+- A valid [Nexus Mods API key](https://www.nexusmods.com/users/myaccount?tab=api%20access)
+
+---
 
 ## Installation
 
-1. **Clone or download this repository:**
-    ```sh
+1. **Clone or download this repository:**  
+    ```bash
     git clone https://github.com/Azurewroth/endorser.git
     cd endorser
     ```
 
-2. **Install dependencies:**
-    ```sh
+2. **Install dependencies:**  
+    ```bash
     pip install requests cryptography
     ```
 
+---
+
 ## Usage
 
-1. **Get your Nexus Mods API key:**  
+1. **Obtain your Nexus Mods API key:**  
    [Get your API key here](https://www.nexusmods.com/users/myaccount?tab=api%20access)
 
-2. **Run the script:**
-    ```sh
+2. **Run the script:**  
+    ```bash
     python endorser.py
     ```
 
-3. **In the GUI:**
-    - Paste your Nexus API key.
-    - Select your game.
-    - Browse to your MO2 profiles folder and select a profile.
-    - Browse to your MO2 mods folder.
-    - Click **Start Endorsement**.
-    - Watch the progress bar and status updates as your mods are endorsed!
-
-## Tracked Mods & Update Checking
-
-- **Automatic Tracking:**  
-  All mods in your selected MO2 mods folder are automatically tracked by the program—no manual entry needed.
-
-- **Show Tracked Mods:**  
-  Click the **"Show Tracked Mods"** button to view a list of all tracked mods for the selected game.
-
-- **Update Detection:**  
-  The program checks Nexus Mods for each tracked mod.  
-  - If a mod has a newer version available on Nexus Mods, it will display `[Update Available]` next to that mod.
-  - If the local mod’s `meta.ini` has changed since the last scan, it will display `(Changed)`.
-
-- **Performance:**  
-  For large mod lists, update checking may take some time. The button will be disabled while checking to prevent duplicate requests.
+3. **Using the GUI:**  
+    - Paste your Nexus API key.  
+    - Select your game.  
+    - Browse to your MO2 profiles folder and select a profile.  
+    - Browse to your MO2 mods folder.  
+    - Click **Start Endorsement**.  
+    - Monitor the progress bar and status updates as your mods are endorsed.
 
 ---
 
-**Tip:**  
-Make sure your Nexus Mods API key is set and your MO2 mods folder path is correct in the config or GUI for best results.
+## Tracked Mods & Update Checking
 
-## Notes
+- **Automatic tracking:**  
+  All mods within your selected MO2 mods folder are tracked automatically — no manual input required.
 
-- Only mods with a valid `meta.ini` and `modid` will be endorsed.
-- Your Nexus API key and settings are encrypted in `config.json` using a key stored in `config.key`.
-- Keep `config.key` safe! If you lose it, you cannot recover your settings.
+- **Show tracked mods:**  
+  Click the **"Show Tracked Mods"** button to display all tracked mods for the selected game.
+
+- **Update detection:**  
+  The tool checks Nexus Mods for newer versions of each tracked mod.  
+  - Mods with updates available will display `[Update Available]`.  
+  - Mods with changed local `meta.ini` files will show `(Changed)`.
+
+- **Performance note:**  
+  For large mod collections, update checking may take some time. The **Show Tracked Mods** button disables during this process to avoid duplicate requests.
+
+---
+
+## Tips & Notes
+
+- Only mods with a valid `meta.ini` and associated Nexus `modid` will be endorsed.  
+- Your Nexus API key and settings are encrypted locally in `config.json` using a key stored in `config.key`.  
+- Keep `config.key` safe — if lost, your encrypted settings cannot be recovered.
+
+---
 
 ## License
 
@@ -82,3 +99,4 @@ This project is licensed under the [GNU GPL v3](LICENSE).
 ---
 
 *Created by Harry Joseph King, 2025.*
+
