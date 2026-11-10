@@ -1,5 +1,5 @@
 # This file is part of Batch Endorser.
-# Copyright (C) 2025 Harry Joseph King
+# Copyright (C) 2025-2026 Harry J. King
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -23,7 +23,11 @@ import threading
 import json
 import base64
 import time
+import webbrowser
 from cryptography.fernet import Fernet, InvalidToken
+
+CURRENT_VERSION = "v1.4.0"
+GITHUB_REPO = "Azurewroth/endorser" 
 
 CONFIG_FILE = "config.json"
 FERNET_KEY_FILE = "config.key"
@@ -78,6 +82,29 @@ def get_mod_file_id(api_key, game_domain, mod_id):
         pass
     return None
 
+def check_for_updates(root):
+    """Checks GitHub releases in the background for a newer version without slowing down startup."""
+    def worker():
+        try:
+            url = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
+            headers = {"Accept": "application/vnd.github.v3+json"}
+            response = requests.get(url, headers=headers, timeout=3)
+            if response.status_code == 200:
+                data = response.json()
+                latest_version = data.get("tag_name")
+                release_url = data.get("html_url")
+                
+                if latest_version and latest_version != CURRENT_VERSION:
+                    root.after(0, lambda: prompt_update(latest_version, release_url))
+        except Exception:
+            pass  # Fail silently if offline
+
+    threading.Thread(target=worker, daemon=True).start()
+
+def prompt_update(version, url):
+    if messagebox.askyesno("Update Available", f"A new version ({version}) of Batch Endorser is available!\n\nWould you like to open the download page?"):
+        webbrowser.open(url)
+
 def process_mods(api_key, game_domain, mods_folder, output_box, status_var, progress_var, root):
     if not os.path.isdir(mods_folder):
         output_box.insert(tk.END, f"❌ Mods folder not found: {mods_folder}\n")
@@ -114,6 +141,11 @@ def process_mods(api_key, game_domain, mods_folder, output_box, status_var, prog
             output_box.insert(tk.END, f"⚠️ Skipped '{mod_name}': No mod ID\n")
             continue
 
+        # Force correct gameName immediately so MO2 never gets confused
+        if not config.has_section('General'):
+            config.add_section('General')
+        config['General']['gameName'] = game_domain
+
         success, code, text = endorse_mod(api_key, game_domain, mod_id)
         time.sleep(0.25)  # Rate limiting to prevent API blocks during large runs
         
@@ -125,11 +157,7 @@ def process_mods(api_key, game_domain, mods_folder, output_box, status_var, prog
             else:
                 output_box.insert(tk.END, f"ℹ️ Syncing flag for '{mod_name}' (ID: {mod_id})\n")
             
-            # Ensure General section exists, update endorsed flag and game name
-            if not config.has_section('General'):
-                config.add_section('General')
             config['General']['endorsed'] = 'true'
-            config['General']['gameName'] = game_domain
 
             # Ensure [installedFiles] section and file ID exist so MO2 clears the '?' icon
             if not config.has_section('installedFiles'):
@@ -304,8 +332,11 @@ def start_gui():
     config = load_config()
 
     root = tk.Tk()
-    root.title("Nexus Batch Endorser for MO2")
+    root.title(f"Nexus Batch Endorser for MO2 ({CURRENT_VERSION})")
     root.geometry("600x600")
+
+    # Trigger background update check on start
+    check_for_updates(root)
 
     api_key_var = tk.StringVar(value=config.get("api_key", ""))
     saved_game = config.get("last_game", list(GAMES.keys())[0])
@@ -420,95 +451,4 @@ def start_gui():
     tk.Label(root, text="Select Game:").pack()
     tk.OptionMenu(root, selected_game, *GAMES.keys()).pack()
 
-    tk.Label(root, text="MO2 Profiles Folder:").pack()
-    frame_profiles = tk.Frame(root)
-    frame_profiles.pack()
-    tk.Entry(frame_profiles, textvariable=profiles_folder_var, width=50).pack(side=tk.LEFT)
-    tk.Button(frame_profiles, text="Browse...", command=browse_profiles_folder).pack(side=tk.LEFT)
-
-    tk.Label(root, text="Select Profile:").pack()
-    profiles_dropdown = tk.OptionMenu(root, profile_options, "")
-    profiles_dropdown.pack()
-
-    tk.Label(root, text="MO2 Mods Folder:").pack()
-    frame_mods = tk.Frame(root)
-    frame_mods.pack()
-    tk.Entry(frame_mods, textvariable=mods_folder_var, width=50).pack(side=tk.LEFT)
-    tk.Button(frame_mods, text="Browse...", command=browse_mods_folder).pack(side=tk.LEFT)
-
-    tk.Label(root, text="MO2 Install Path:").pack()
-    frame_mo2 = tk.Frame(root)
-    frame_mo2.pack()
-    tk.Entry(frame_mo2, textvariable=mo2_install_path_var, width=50).pack(side=tk.LEFT)
-    tk.Button(frame_mo2, text="Browse...", command=lambda: mo2_install_path_var.set(filedialog.askdirectory())).pack(side=tk.LEFT)
-
-    endorse_btn = tk.Button(root, text="Start Endorsement", command=start_process, bg="green", fg="white")
-    endorse_btn.pack(pady=10)
-    show_tracked_btn = tk.Button(root, text="Show Tracked Mods", command=gui_show_tracked_mods)
-    show_tracked_btn.pack(pady=2)
-
-    status_var = tk.StringVar()
-    status_var.set("Ready.")
-    status_bar = tk.Label(root, textvariable=status_var, bd=1, relief=tk.SUNKEN, anchor=tk.W)
-    status_bar.pack(side=tk.BOTTOM, fill=tk.X)
-
-    progress_var = tk.DoubleVar()
-    progress_bar = ttk.Progressbar(root, variable=progress_var, maximum=100, mode='determinate')
-    progress_bar.pack(side=tk.BOTTOM, fill=tk.X)
-
-    show_output_var = tk.BooleanVar(value=True)
-
-    def toggle_output_box():
-        if show_output_var.get():
-            output_box.pack(fill=tk.BOTH, expand=True, padx=8, pady=8)
-        else:
-            output_box.pack_forget()
-
-    tk.Checkbutton(
-        root,
-        text="Show Output Text Box",
-        variable=show_output_var,
-        command=toggle_output_box
-    ).pack()
-
-    output_box = scrolledtext.ScrolledText(root, width=80, height=20)
-    if show_output_var.get():
-        output_box.pack(fill=tk.BOTH, expand=True, padx=8, pady=8)
-
-    def on_game_change(*args):
-        if mods_folder_var.get():
-            auto_track_mods(config, mods_folder_var.get(), selected_game.get())
-    selected_game.trace_add("write", on_game_change)
-
-    root.mainloop()
-
-    api_key = api_key_var.get().strip()
-    game = selected_game.get()
-    profiles_folder = profiles_folder_var.get().strip()
-    mods_folder = mods_folder_var.get().strip()
-    profile_selected = profile_options.get()
-    tracked_mods = config.get("tracked_mods", {})
-    mo2_install_path = mo2_install_path_var.get().strip()
-
-    config["api_key"] = api_key
-    config["last_game"] = game
-    config["profiles_folder"] = profiles_folder
-    config["mods_folder"] = mods_folder
-    config["last_profile"] = profile_selected
-    config["tracked_mods"] = tracked_mods
-    config["mo2_install_path"] = mo2_install_path
-
-    save_config(
-        api_key,
-        game,
-        profiles_folder,
-        mods_folder,
-        profile_selected,
-        tracked_mods,
-        mo2_install_path
-    )
-
-    auto_track_mods(config, mods_folder_var.get(), selected_game.get())
-
-if __name__ == "__main__":
-    start_gui()
+    tk.Label(root, text="MO
