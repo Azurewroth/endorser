@@ -48,9 +48,22 @@ def get_fernet():
 
 def endorse_mod(api_key, game_domain, mod_id):
     url = f"https://api.nexusmods.com/v1/games/{game_domain}/mods/{mod_id}/endorse.json"
-    headers = {"apikey": api_key}
+    headers = {"apikey": api_key, "accept": "application/json"}
     response = requests.post(url, headers=headers)
     return response.status_code == 200, response.status_code, response.text
+
+def get_mod_file_id(api_key, game_domain, mod_id):
+    """Fetches the endorsement file ID from Nexus so MO2 can fully verify the mod."""
+    try:
+        url = f"https://api.nexusmods.com/v1/games/{game_domain}/mods/{mod_id}.json"
+        headers = {"apikey": api_key, "accept": "application/json"}
+        resp = requests.get(url, headers=headers)
+        if resp.status_code == 200:
+            data = resp.json()
+            return data.get("endorsement_file_id") or data.get("primary_file_id")
+    except Exception:
+        pass
+    return None
 
 def process_mods(api_key, game_domain, mods_folder, output_box, status_var, progress_var, root):
     if not os.path.isdir(mods_folder):
@@ -61,7 +74,8 @@ def process_mods(api_key, game_domain, mods_folder, output_box, status_var, prog
     count_endorsed = 0
     count_total = 0
     mods = [mod_name for mod_name in os.listdir(mods_folder)]
-    output_box.insert(tk.END, f"Found mods: {mods}\n")
+    output_box.insert(tk.END, f"Found mods: {len(mods)} items\n")
+    
     for idx, mod_name in enumerate(mods, 1):
         mod_folder = os.path.join(mods_folder, mod_name)
         meta_ini = os.path.join(mod_folder, "meta.ini")
@@ -69,10 +83,10 @@ def process_mods(api_key, game_domain, mods_folder, output_box, status_var, prog
             continue
 
         config = configparser.ConfigParser()
+        config.optionxform = str  # Preserve exact case formatting for MO2 config files
         try:
             with open(meta_ini, encoding="utf-8-sig") as f:
                 content = f.read()
-                # Remove all BOMs from the start
                 while content.startswith('\ufeff'):
                     content = content[1:]
                 from io import StringIO
@@ -88,14 +102,34 @@ def process_mods(api_key, game_domain, mods_folder, output_box, status_var, prog
             continue
 
         success, code, text = endorse_mod(api_key, game_domain, mod_id)
-        if success:
-            output_box.insert(tk.END, f"✅ Endorsed '{mod_name}' (ID: {mod_id})\n")
-            if 'General' not in config:
-                config['General'] = {}
+        
+        # Accept successful endorsement (200) or already endorsed response (400)
+        if success or code == 400:
+            if success:
+                output_box.insert(tk.END, f"✅ Endorsed '{mod_name}' (ID: {mod_id})\n")
+                count_endorsed += 1
+            else:
+                output_box.insert(tk.END, f"ℹ️ Syncing flag for '{mod_name}' (ID: {mod_id})\n")
+            
+            # Ensure General section exists and update endorsed flag
+            if not config.has_section('General'):
+                config.add_section('General')
             config['General']['endorsed'] = 'true'
+
+            # Ensure [installedFiles] section and file ID exist so MO2 clears the '?' icon
+            if not config.has_section('installedFiles'):
+                config.add_section('installedFiles')
+            
+            if not config.has_option('installedFiles', '1\\fileid'):
+                file_id = get_mod_file_id(api_key, game_domain, mod_id)
+                if file_id:
+                    config['installedFiles']['size'] = '1'
+                    config['installedFiles']['1\\modid'] = str(mod_id)
+                    config['installedFiles']['1\\fileid'] = str(file_id)
+
+            # Write changes back with encoding safety
             with open(meta_ini, 'w', encoding='utf-8-sig') as configfile:
                 config.write(configfile)
-            count_endorsed += 1
         else:
             output_box.insert(tk.END, f"❌ Failed to endorse '{mod_name}' (ID: {mod_id}): {code} {text}\n")
 
@@ -105,7 +139,7 @@ def process_mods(api_key, game_domain, mods_folder, output_box, status_var, prog
         root.after(0, progress_var.set, percent)
         root.after(0, status_var.set, f"Processing {idx}/{len(mods)}: {mod_name}")
 
-    output_box.insert(tk.END, f"\nFinished: {count_endorsed}/{count_total} endorsed.\n")
+    output_box.insert(tk.END, f"\nFinished: {count_endorsed} endorsed / processed out of {count_total} total mods.\n")
     root.after(0, status_var.set, "Done.")
     root.after(0, progress_var.set, 100)
 
@@ -116,13 +150,10 @@ def load_config():
             with open(CONFIG_FILE, "rb") as f:
                 encrypted = f.read()
                 try:
-                    # Try to decrypt as Fernet
                     decrypted = fernet.decrypt(encrypted)
                     data = json.loads(decrypted.decode("utf-8"))
                 except InvalidToken:
-                    # If decryption fails, try to load as plain JSON and then encrypt it
                     data = json.loads(encrypted.decode("utf-8"))
-                    # Immediately encrypt and save
                     save_config(
                         data.get("api_key", ""),
                         data.get("last_game", ""),
@@ -132,7 +163,6 @@ def load_config():
                         data.get("tracked_mods", {}),
                         data.get("mo2_install_path", "")
                     )
-                # Decode API key if present
                 if "api_key" in data and data["api_key"]:
                     data["api_key"] = base64.b64decode(data["api_key"]).decode()
                 if "tracked_mods" not in data:
@@ -164,7 +194,6 @@ def add_tracked_mod(config, game, mod_id, author):
     tracked = config.get("tracked_mods", {})
     if game not in tracked:
         tracked[game] = []
-    # Add meta_mtime with the current timestamp
     tracked[game].append({"mod_id": mod_id, "author": author, "meta_mtime": int(os.path.getmtime(os.path.join(config.get('mods_folder', ''), f"{mod_id}.esp"))) if os.path.isfile(os.path.join(config.get('mods_folder', ''), f"{mod_id}.esp")) else 0})
     config["tracked_mods"] = tracked
     save_config(
@@ -182,7 +211,7 @@ def get_tracked_mods(config, game):
 
 def auto_track_mods(config, mods_folder, game):
     if not mods_folder or not os.path.isdir(mods_folder):
-        return  # Do nothing if the folder is not set or doesn't exist
+        return
     tracked = config.get("tracked_mods", {})
     if game not in tracked:
         tracked[game] = []
@@ -195,6 +224,7 @@ def auto_track_mods(config, mods_folder, game):
         if not os.path.isfile(meta_ini):
             continue
         config_parser = configparser.ConfigParser()
+        config_parser.optionxform = str
         try:
             with open(meta_ini, encoding="utf-8-sig") as f:
                 content = f.read()
@@ -219,7 +249,6 @@ def auto_track_mods(config, mods_folder, game):
             }
             updated = True
 
-    # Convert back to list
     config["tracked_mods"][game] = list(tracked_mods.values())
     if updated:
         save_config(
@@ -233,7 +262,6 @@ def auto_track_mods(config, mods_folder, game):
         )
 
 def check_mod_updates(api_key, game_domain, tracked_mods):
-    """Returns a dict of mod_id -> True if update available, else False."""
     updates = {}
     headers = {"apikey": api_key, "Accept": "application/json"}
     for mod in tracked_mods:
@@ -244,7 +272,6 @@ def check_mod_updates(api_key, game_domain, tracked_mods):
             resp = requests.get(url, headers=headers)
             if resp.status_code == 200:
                 data = resp.json()
-                # Parse the updated_time from Nexus (format: 2024-06-22T16:39:00+00:00)
                 from datetime import datetime
                 nexus_updated = int(datetime.strptime(data["updated_time"], "%Y-%m-%dT%H:%M:%S%z").timestamp())
                 updates[mod_id] = nexus_updated > local_mtime
@@ -255,7 +282,6 @@ def check_mod_updates(api_key, game_domain, tracked_mods):
     return updates
 
 def start_gui():
-    # Load config on startup
     config = load_config()
 
     root = tk.Tk()
@@ -272,7 +298,6 @@ def start_gui():
     profile_options = tk.StringVar(value=config.get("last_profile", ""))
     mo2_install_path_var = tk.StringVar(value=config.get("mo2_install_path", ""))
 
-    # Auto-track mods if mods folder is set
     if mods_folder_var.get() and selected_game.get():
         auto_track_mods(config, mods_folder_var.get(), selected_game.get())
 
@@ -317,7 +342,6 @@ def start_gui():
             show_tracked_btn.config(state=tk.NORMAL)
             return
 
-        # Save config on start
         save_config(api_key, selected_game.get(), profiles_folder, mods_folder, profile_selected, config.get("tracked_mods", {}), mo2_install_path_var.get().strip())
 
         output_box.delete(1.0, tk.END)
@@ -340,16 +364,6 @@ def start_gui():
             daemon=True
         )
         t.start()
-
-    def gui_add_tracked_mod():
-        mod_id = track_mod_id_var.get().strip()
-        author = track_author_var.get().strip()
-        game = selected_game.get()
-        if not mod_id or not author:
-            messagebox.showwarning("Missing Info", "Enter both Mod ID and Author.")
-            return
-        add_tracked_mod(config, game, mod_id, author)
-        messagebox.showinfo("Tracked", f"Tracked mod {mod_id} by {author} for {game}.")
 
     def gui_show_tracked_mods():
         endorse_btn.config(state=tk.DISABLED)
@@ -383,7 +397,6 @@ def start_gui():
     if not api_key_in_config:
         tk.Label(root, text="Nexus API Key:").pack()
         tk.Entry(root, textvariable=api_key_var, width=80).pack()
-    # else: do not show the API key entry
 
     tk.Label(root, text="Select Game:").pack()
     tk.OptionMenu(root, selected_game, *GAMES.keys()).pack()
@@ -450,7 +463,6 @@ def start_gui():
 
     root.mainloop()
 
-    # Gather latest values from GUI
     api_key = api_key_var.get().strip()
     game = selected_game.get()
     profiles_folder = profiles_folder_var.get().strip()
@@ -459,7 +471,6 @@ def start_gui():
     tracked_mods = config.get("tracked_mods", {})
     mo2_install_path = mo2_install_path_var.get().strip()
 
-    # Update config dictionary
     config["api_key"] = api_key
     config["last_game"] = game
     config["profiles_folder"] = profiles_folder
@@ -468,7 +479,6 @@ def start_gui():
     config["tracked_mods"] = tracked_mods
     config["mo2_install_path"] = mo2_install_path
 
-    # Save config on exit
     save_config(
         api_key,
         game,
@@ -483,5 +493,3 @@ def start_gui():
 
 if __name__ == "__main__":
     start_gui()
-
-
