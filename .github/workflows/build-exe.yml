@@ -1,1 +1,1 @@
-.github/workflows/build-exe.yml
+name: Build and Release .EXE
