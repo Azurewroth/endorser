@@ -2,8 +2,12 @@ name: Build and Release .EXE
 
 on:
   push:
-    branches: [ main, master ]
-  workflow_dispatch:
+    tags:
+      - 'v*'  # Triggers whenever you push a tag starting with v (e.g., v1.3.0)
+  workflow_dispatch: # Allows you to also trigger it manually from the Actions tab
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -27,8 +31,11 @@ jobs:
         run: |
           pyinstaller endorser.spec
 
-      - name: Upload Artifact
-        uses: actions/upload-artifact@v4
+      - name: Create GitHub Release & Upload Asset
+        uses: softprops/action-gh-release@v2
         with:
-          name: BatchEndorser-EXE
-          path: dist/*.exe
+          files: dist/*.exe
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
